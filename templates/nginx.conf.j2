@@ -1,8 +1,8 @@
+log_format custom '$time_iso8601 | $status | ${request_time}s | $upstream_addr | $request';
+
 upstream api_service {
     server api:{{ services.port }};
 }
-
-log_format custom '$time_iso8601 | $status | ${request_time}s | $upstream_addr | $request';
 
 server {
     listen {{ nginx.port }};
@@ -15,7 +15,6 @@ server {
     proxy_read_timeout    {{ nginx.proxy_timeout }}s;
 
     add_header X-Deployed-By swiftdeploy always;
-
     proxy_pass_header X-Mode;
 
     location / {

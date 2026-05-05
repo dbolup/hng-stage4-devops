@@ -169,16 +169,26 @@ def cmd_validate():
             failed += 1
 
     # Check 5: nginx.conf is syntactically valid
+    # Note: upstream DNS (api:port) only resolves inside the full stack network.
+    # We validate syntax only — upstream resolution errors are expected and ignored.
     if os.path.exists(NGINX_CONF):
         result = run(
-            f"docker run --rm -v $(pwd)/nginx.conf:/etc/nginx/conf.d/default.conf:ro nginx:latest nginx -t",
+            f"docker run --rm -v $(pwd)/nginx.conf:/etc/nginx/conf.d/default.conf:ro nginx:latest nginx -t 2>&1 || true",
             check=False, capture=True
         )
-        if result.returncode == 0:
+        output = result.stdout + result.stderr
+        # Only fail on real syntax errors, not upstream DNS resolution
+        real_errors = [
+            line for line in output.splitlines()
+            if "emerg" in line or "error" in line
+            if "host not found in upstream" not in line
+            if "connect() failed" not in line
+        ]
+        if not real_errors:
             ok("nginx.conf syntax is valid")
             passed += 1
         else:
-            fail(f"nginx.conf syntax error:\n{result.stderr}")
+            fail(f"nginx.conf syntax error:\n" + "\n".join(real_errors))
             failed += 1
     else:
         fail("nginx.conf not found — run: ./swiftdeploy init first")
